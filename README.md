@@ -86,3 +86,65 @@ Un fork du repo original . Puis, un Pull Request contenant **vos noms** et :
 ## Échéance
 
 Le 15 avril 2021 à 23h59
+
+
+
+---
+
+## <u>Rendu</u>
+
+> Auteurs : Julien Béguin & Gwendoline Dössegger
+>
+> Date : 09.04.2021
+
+
+
+### Partie 1
+
+Voici les étapes principales de notre script `wpa_key_derivation.py` :
+
+1. On récupère les adresses MAC de l'AP et du client avec la trame "Association Request" en filtrant avec le SSID ciblé
+2. On récupère le ANonce dans le premier paquet du 4-way handshake
+3. On récupère le SNonce dans le deuxième paquet du 4-way handshake
+4. Puis, on récupère le MIC ainsi que la valeur indiquant le méthode de hachage utilisé dans le quatrième paquet de 4-way handshake
+5. Enfin, la valeur du MIC récupéré doit être égal au MIC calculé
+
+
+
+### Partie 2
+
+Voici les étapes principales de notre script `scaircrack.py` :
+
+1. On effectue les 4 première étapes de la partie 1
+2. Pour chaque mot de la wordlist :
+   1. On calcul le MIC avec les paramètres récupéré
+   2. On test si le MIC calculé correspond on MIC récupéré
+   3. Si c'est le cas, cela veut dire que la passphrase testé est correcte.
+
+
+
+Exécution du script :
+
+![](step2.png)
+
+
+
+### Partie 3
+
+Dû à la structure existante de notre script `scaircrack.py`, il nous semblait facile de l'adapter pour la partie 3. Il suffirait de remplacer le SSID du réseau à attaquer ainsi que de remplacer la lecture du .cap par le sniffing d'une interface en mode moniteur comme ceci :
+
+```python
+wpa = sniff(iface='wlp1s0mon', count=1000)
+```
+
+
+
+Néanmoins, nous n'avions pas de réseau WPA à disposition et nous n'avons pas pu tester notre attaque.
+
+
+
+### Remarque
+
+Nous avons eu plusieurs problème avec la lecture des trames avec scapy. Entre la version `2.4.3-4` et la version `2.4.4` de scapy, les types et subtypes des trames ne sont pas équivalent.
+
+Nous avons donc décidé d'utiliser la version `2.4.3-4` car nous obtenions des valeurs plus cohérente avec les valeurs observable sur wireshark.
