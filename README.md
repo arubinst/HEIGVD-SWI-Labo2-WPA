@@ -77,8 +77,18 @@ Un fork du repo original . Puis, un Pull Request contenant **vos noms** et :
 
 - Script ```wpa_key_derivation.py``` **modifié pour** la récupération automatique des paramètres à partir de la capture. **Les modifications doivent être commentées/documentées**
 - Script ```scaircrack.py``` **abondamment commenté/documenté** + fichier wordlist
+   
    - Capture d’écran de votre script en action
+   
+     ![](img/cap1.PNG)
+   
+     Nous pouvons constater que lorsque la bonne passphrase se trouve dans notre fichier "wordlist.txt", elle est affichée à l'utilisateur. 
+   
+     ![cap2](img/cap2.PNG) 
+   
+     Lorsque la passphrase ne se trouve pas dans le fichier "wordlist.txt", un message indique à l'utilisateur que celle-ci n'a pas été trouvée.
 -	**(Challenge optionnel)** Script ```scairodump.py``` **abondamment commenté/documenté** 
+   
    - Capture d’écran de votre script en action
 -	Envoyer le hash du commit et votre username GitHub et **les noms des participants** par email au professeur et à l'assistant
 
