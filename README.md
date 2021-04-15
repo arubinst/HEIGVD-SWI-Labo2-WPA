@@ -20,11 +20,11 @@ __Développement à faire en Python 3__
 
 
 
-__Il est fortement conseillé d'employer une distribution Kali__ (on ne pourra pas assurer le support avec d'autres distributions). __Si vous utilisez une VM, il vous faudra une interface WiFi usb (uniquement pour l'exercice "chellenge" qui est optionnel), disponible sur demande__.
+__Il est fortement conseillé d'employer une distribution Kali__ (on ne pourra pas assurer le support avec d'autres distributions). __Si vous utilisez une VM, il vous faudra une interface WiFi usb (uniquement pour l'exercice "challenge" qui est optionnel), disponible sur demande__.
 
 __ATTENTION :__ Pour l'exercise "challenge", il est très important de bien fixer le canal lors de vos captures et vos injections. Si vous en avez besoin, la méthode la plus sure est d'utiliser l'option :
 
-```--channel``` de ```airodump-ng```
+`--channel` de `airodump-ng`
 
 et de garder la fenêtre d'airodump ouverte en permanence pendant que vos scripts tournent ou vos manipulations sont effectuées.
 
@@ -36,10 +36,10 @@ et de garder la fenêtre d'airodump ouverte en permanence pendant que vos script
 Dans cette première partie, vous allez récupérer le script **Python3** [wpa\_key\_derivation.py](files/wpa_key_derivation.py). Il vous faudra également le fichier de capture [wpa\_handshake.cap](files/wpa_handshake.cap) contenant un processus d’authentification WPA. Vous aurez aussi besoin du fichier [pbkdf2.py](files/pbkdf2.py), qui permet de calculer les 4096 tours pour le hash de la passphrase. Tous ces fichiers doivent être copiés dans le même répertoire local sur vos machines.
 
 - Ouvrir le fichier de capture [wpa\_key\_derivation.py](files/wpa_key_derivation.py) avec Wireshark
-- Exécuter le script avec ```python3 wpa_key_derivation.py```
+- Exécuter le script avec `python3 wpa_key_derivation.py`
 - Essayer d’identifier les valeurs affichées par le script dans la capture Wireshark
-- Analyser le fonctionnement du script. En particulier, __faire attention__ à la variable ```data``` qui contient la payload de la trame et la comparer aux données de la quatrième trame du 4-way handshake. Lire [la fin de ce document](#quelques-éléments-à-considérer-) pour l’explication de la différence.
-- __Modifier le script__ pour qu’il récupère automatiquement, à partir de la capture, les valeurs qui se trouvent actuellement codées en dur (```ssid```, ```APmac```, ```Clientmac```, nonces…) 
+- Analyser le fonctionnement du script. En particulier, __faire attention__ à la variable `data` qui contient la payload de la trame et la comparer aux données de la quatrième trame du 4-way handshake. Lire [la fin de ce document](#quelques-éléments-à-considérer-) pour l’explication de la différence.
+- __Modifier le script__ pour qu’il récupère automatiquement, à partir de la capture, les valeurs qui se trouvent actuellement codées en dur (`ssid, APmac`, `Clientmac`, nonces…) 
 
 
 ### 2. Scaircrack (aircrack basé sur Scapy)
@@ -47,7 +47,7 @@ Dans cette première partie, vous allez récupérer le script **Python3** [wpa\_
 Aircrack utilise le quatrième message du 4-way handshake pour tester les passphrases contenues dans un dictionnaire. Ce message ne contient pas de données chiffrées mais il est authentifié avec un MIC qui peut être exploité comme « oracle » pour tester des clés différentes obtenues des passphrases du dictionnaire.
 
 
-Utilisant le script [wpa\_key\_derivation.py](files/wpa_key_derivation.py) comme guide, créer un nouveau script ```scaircrack.py``` qui doit être capable de :
+Utilisant le script [wpa\_key\_derivation.py](files/wpa_key_derivation.py) comme guide, créer un nouveau script `scaircrack.py` qui doit être capable de :
 
 - Lire une passphrase à partir d’un fichier (wordlist)
 - Dériver les clés à partir de la passphrase que vous venez de lire et des autres éléments nécessaires contenus dans la capture (cf [exercice 1](#1-obtention-des-paramètres-pour-la-dérivation-des-clés-wpa))
@@ -68,17 +68,17 @@ Modifier votre script de cracking pour qu’il soit capable de faire les mêmes 
 
 __Vous aurez peut-être besoin de lire ceci plus d'une fois pour comprendre...__
 
-- Le dernier message du 4-way handshake contient un MIC dans sa payload. Pour calculer vous-même votre MIC, vous devez mettre les octets du MIC dans cette payload à ```\x00```
+- Le dernier message du 4-way handshake contient un MIC dans sa payload. Pour calculer vous-même votre MIC, vous devez mettre les octets du MIC dans cette payload à `\x00`
 - Le calcul du MIC peut utiliser MD5 (WPA) ou SHA-1 (WPA2). Le 4-way handshake contient les informations nécessaires dans le champ Key Information
 
 ## Livrables
 
 Un fork du repo original . Puis, un Pull Request contenant **vos noms** et :
 
-- Script ```wpa_key_derivation.py``` **modifié pour** la récupération automatique des paramètres à partir de la capture. **Les modifications doivent être commentées/documentées**
-- Script ```scaircrack.py``` **abondamment commenté/documenté** + fichier wordlist
+- Script `wpa_key_derivation.py` **modifié pour** la récupération automatique des paramètres à partir de la capture. **Les modifications doivent être commentées/documentées**
+- Script `scaircrack.py` **abondamment commenté/documenté** + fichier wordlist
    - Capture d’écran de votre script en action
--	**(Challenge optionnel)** Script ```scairodump.py``` **abondamment commenté/documenté** 
+-	**(Challenge optionnel)** Script `scairodump.py` **abondamment commenté/documenté** 
    - Capture d’écran de votre script en action
 -	Envoyer le hash du commit et votre username GitHub et **les noms des participants** par email au professeur et à l'assistant
 

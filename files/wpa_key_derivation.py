@@ -9,83 +9,134 @@ utilise l'algorithme Michael. Dans ce cas-ci, l'authentification, on utilise
 sha-1 pour WPA2 ou MD5 pour WPA)
 """
 
-__author__      = "Abraham Rubinstein et Yann Lederrey"
-__copyright__   = "Copyright 2017, HEIG-VD"
-__license__ 	= "GPL"
-__version__ 	= "1.0"
-__email__ 		= "abraham.rubinstein@heig-vd.ch"
-__status__ 		= "Prototype"
+__author__ = "Abraham Rubinstein, Yann Lederrey, Laurent Scherer"
+__copyright__ = "Copyright 2017, HEIG-VD"
+__license__ = "GPL"
+__version__ = "1.0"
+__email__ = "abraham.rubinstein@heig-vd.ch"
+__status__ = "Prototype"
+
+from scapy.contrib.wpa_eapol import WPA_key
+
+"""
+sources : 
+  * https://wlan1nde.wordpress.com/2016/08/24/fake-a-wlan-connection-via-scapy/
+  * Find the handshake packets: 
+  https://scapy.readthedocs.io/en/latest/api/scapy.contrib.wpa_eapol.html
+  #scapy.contrib.wpa_eapol.WPA_key
+  * Association request layer packets with Scapy Dot11AssoReq: 
+  https://scapy.readthedocs.io/en/latest/api/scapy.layers.dot11.html#scapy
+  .layers.dot11.Dot11AssoReq
+"""
+
+from binascii import a2b_hex
 
 from scapy.all import *
-from binascii import a2b_hex, b2a_hex
-#from pbkdf2 import pbkdf2_hex
-from pbkdf2 import *
-from numpy import array_split
-from numpy import array
-import hmac, hashlib
+from scapy.layers.dot11 import Dot11AssoReq
 
-def customPRF512(key,A,B):
+from pbkdf2 import *
+
+
+def customPRF512(key, A, B):
     """
-    This function calculates the key expansion from the 256 bit PMK to the 512 bit PTK
+    This function calculates the key expansion from the 256 bit PMK to the
+    512 bit PTK
     """
     blen = 64
-    i    = 0
-    R    = b''
-    while i<=((blen*8+159)/160):
-        hmacsha1 = hmac.new(key,A+str.encode(chr(0x00))+B+str.encode(chr(i)),hashlib.sha1)
-        i+=1
-        R = R+hmacsha1.digest()
+    i = 0
+    R = b''
+    while i <= ((blen * 8 + 159) / 160):
+        hmacsha1 = hmac.new(key,
+                            A + str.encode(chr(0x00)) + B + str.encode(chr(i)),
+                            hashlib.sha1)
+        i += 1
+        R = R + hmacsha1.digest()
     return R[:blen]
 
-# Read capture file -- it contains beacon, authentication, associacion, handshake and data
-wpa=rdpcap("wpa_handshake.cap") 
 
-# Important parameters for key derivation - most of them can be obtained from the pcap file
-passPhrase  = "actuelle"
-A           = "Pairwise key expansion" #this string is used in the pseudo-random function
-ssid        = "SWI"
-APmac       = a2b_hex("cebcc8fdcab7")
-Clientmac   = a2b_hex("0013efd015bd")
-
-# Authenticator and Supplicant Nonces
-ANonce      = a2b_hex("90773b9a9661fee1f406e8989c912b45b029c652224e8b561417672ca7e0fd91")
-SNonce      = a2b_hex("7b3826876d14ff301aee7c1072b5e9091e21169841bce9ae8a3f24628f264577")
-
-# This is the MIC contained in the 4th frame of the 4-way handshake
-# When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
-mic_to_test = "36eef66540fa801ceee2fea9b7929b40"
-
-B           = min(APmac,Clientmac)+max(APmac,Clientmac)+min(ANonce,SNonce)+max(ANonce,SNonce) #used in pseudo-random function
-
-data        = a2b_hex("0103005f02030a0000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000") #cf "Quelques détails importants" dans la donnée
-
-print ("\n\nValues used to derivate keys")
-print ("============================")
-print ("Passphrase: ",passPhrase,"\n")
-print ("SSID: ",ssid,"\n")
-print ("AP Mac: ",b2a_hex(APmac),"\n")
-print ("CLient Mac: ",b2a_hex(Clientmac),"\n")
-print ("AP Nonce: ",b2a_hex(ANonce),"\n")
-print ("Client Nonce: ",b2a_hex(SNonce),"\n")
-
-#calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
-passPhrase = str.encode(passPhrase)
-ssid = str.encode(ssid)
-pmk = pbkdf2(hashlib.sha1,passPhrase, ssid, 4096, 32)
-
-#expand pmk to obtain PTK
-ptk = customPRF512(pmk,str.encode(A),B)
-
-#calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
-mic = hmac.new(ptk[0:16],data,hashlib.sha1)
+def getAssociationRequestPackets(wpa):
+    """
+    return ssid, APmac, Clientmac
+    """
+    assoReqPkt = b''
+    for p in wpa:
+        if p.haslayer(Dot11AssoReq):
+            assoReqPkt = p
+            # break
+    return assoReqPkt.info.decode(), \
+           a2b_hex(assoReqPkt.addr1.replace(':', '')), \
+           a2b_hex(assoReqPkt.addr2.replace(':', ''))
 
 
-print ("\nResults of the key expansion")
-print ("=============================")
-print ("PMK:\t\t",pmk.hex(),"\n")
-print ("PTK:\t\t",ptk.hex(),"\n")
-print ("KCK:\t\t",ptk[0:16].hex(),"\n")
-print ("KEK:\t\t",ptk[16:32].hex(),"\n")
-print ("TK:\t\t",ptk[32:48].hex(),"\n")
-print ("MICK:\t\t",ptk[48:64].hex(),"\n")
-print ("MIC:\t\t",mic.hexdigest(),"\n")
+def getHandshake(wpa):
+    """
+    returns ANonce, SNonce, mic, data
+    """
+    handshake = []
+    # we could brake once we have the full handshake (4 values) but it's so fast
+    # that it doesn't matter.
+    for p in wpa:
+        # if it has that layer it's part of the handshake, cf. sources
+        if p.haslayer(WPA_key):
+            handshake.append(p.getlayer(WPA_key))
+    # Authenticator and Supplicant Nonces
+    mic_to_test = handshake[3].wpa_key_mic
+    handshake[3].wpa_key_mic = 0
+    data = bytes(handshake[3].underlayer)
+    return handshake[0].nonce, handshake[1].nonce, mic_to_test, data
+
+
+def printResultsKeyExpansion(pmk, ptk, mic):
+    print("\nResults of the key expansion")
+    print("=============================")
+    print("PMK:\t\t", pmk.hex())
+    print("PTK:\t\t", ptk.hex())
+    print("KCK:\t\t", ptk[0:16].hex())
+    print("KEK:\t\t", ptk[16:32].hex())
+    print("TK:\t\t", ptk[32:48].hex())
+    print("MICK:\t\t", ptk[48:64].hex())
+    print("MIC:\t\t", mic.hexdigest())
+
+
+if __name__ == '__main__':
+    # Read capture file -- it contains beacon, authentication, associacion,
+    # handshake and data
+    wpa = rdpcap("wpa_handshake.cap")
+
+    ssid, APmac, Clientmac = getAssociationRequestPackets(wpa)
+    ANonce, SNonce, mic_to_test, data = getHandshake(wpa)
+
+    # Important parameters for key derivation - most of them can be obtained
+    # from
+    # the pcap file
+    passPhrase = "actuelle"
+    # this string is used in the pseudo-random function
+    A = "Pairwise key expansion"
+
+    B = min(APmac, Clientmac) \
+        + max(APmac, Clientmac) \
+        + min(ANonce, SNonce) \
+        + max(ANonce, SNonce)  # used in pseudo-random function
+
+    print("\n\nValues used to derivate keys")
+    print("============================")
+    print("Passphrase: \t", passPhrase)
+    print("SSID: \t\t", ssid)
+    print("AP Mac: \t", APmac.hex())
+    print("CLient Mac: \t", Clientmac.hex())
+    print("AP Nonce: \t", ANonce.hex())
+    print("Client Nonce: \t", SNonce.hex())
+
+    # calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
+    passPhrase = str.encode(passPhrase)
+    ssid = str.encode(ssid)
+    pmk = pbkdf2(hashlib.sha1, passPhrase, ssid, 4096, 32)
+
+    # expand pmk to obtain PTK
+    ptk = customPRF512(pmk, str.encode(A), B)
+
+    # calculate MIC over EAPOL payload (Michael)- The ptk is, in fact,
+    # KCK|KEK|TK|MICK
+    mic = hmac.new(ptk[0:16], data, hashlib.sha1)
+
+    printResultsKeyExpansion(pmk, ptk, mic)
