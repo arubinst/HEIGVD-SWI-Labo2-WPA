@@ -19,6 +19,8 @@ __status__ 		= "Prototype"
 from scapy.all import *
 from binascii import a2b_hex, b2a_hex
 #from pbkdf2 import pbkdf2_hex
+from scapy.contrib.wpa_eapol import WPA_key
+
 from pbkdf2 import *
 from numpy import array_split
 from numpy import array
@@ -38,25 +40,29 @@ def customPRF512(key,A,B):
     return R[:blen]
 
 # Read capture file -- it contains beacon, authentication, associacion, handshake and data
-wpa=rdpcap("wpa_handshake.cap") 
-
+wpa=rdpcap("wpa_handshake.cap")
+print(wpa[10].show())
+exit()
 # Important parameters for key derivation - most of them can be obtained from the pcap file
 passPhrase  = "actuelle"
 A           = "Pairwise key expansion" #this string is used in the pseudo-random function
-ssid        = "SWI"
-APmac       = a2b_hex("cebcc8fdcab7")
-Clientmac   = a2b_hex("0013efd015bd")
-
+ssid        = wpa[0].info.decode("utf-8")
+#APmac       = a2b_hex("cebcc8fdcab7")
+#Clientmac   = a2b_hex("0013efd015bd")
+APmac       = a2b_hex(wpa[0].addr2.replace(":",""))
+Clientmac       = a2b_hex(wpa[0].addr1.replace(":",""))
+ANonce = wpa[5].getlayer(WPA_key).nonce
+SNonce = raw(wpa[6])[65:-72]
 # Authenticator and Supplicant Nonces
-ANonce      = a2b_hex("90773b9a9661fee1f406e8989c912b45b029c652224e8b561417672ca7e0fd91")
-SNonce      = a2b_hex("7b3826876d14ff301aee7c1072b5e9091e21169841bce9ae8a3f24628f264577")
 
 # This is the MIC contained in the 4th frame of the 4-way handshake
 # When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
 mic_to_test = "36eef66540fa801ceee2fea9b7929b40"
 
 B           = min(APmac,Clientmac)+max(APmac,Clientmac)+min(ANonce,SNonce)+max(ANonce,SNonce) #used in pseudo-random function
-
+data_from_capture = wpa[9]
+print(data_from_capture)
+exit()
 data        = a2b_hex("0103005f02030a0000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000") #cf "Quelques détails importants" dans la donnée
 
 print ("\n\nValues used to derivate keys")
