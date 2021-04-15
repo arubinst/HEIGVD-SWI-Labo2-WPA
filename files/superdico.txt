@@ -1,0 +1,12 @@
+manette
+boisson
+clavier
+souris
+sac
+corbeille
+aspirateur
+actuelle
+motdepasse
+passphrase
+admin123
+monsuperwifi

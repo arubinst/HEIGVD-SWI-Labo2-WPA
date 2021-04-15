@@ -41,6 +41,17 @@ Dans cette première partie, vous allez récupérer le script **Python3** [wpa\_
 - Analyser le fonctionnement du script. En particulier, __faire attention__ à la variable ```data``` qui contient la payload de la trame et la comparer aux données de la quatrième trame du 4-way handshake. Lire [la fin de ce document](#quelques-éléments-à-considérer-) pour l’explication de la différence.
 - __Modifier le script__ pour qu’il récupère automatiquement, à partir de la capture, les valeurs qui se trouvent actuellement codées en dur (```ssid```, ```APmac```, ```Clientmac```, nonces…) 
 
+#### Modifications effectuées
+
+Ci-dessous une capture d'écran de notre exécution du script ainsi que de l'identification d'un paramètre dans WireShark.
+
+![](img/wireshark.png)
+
+Passé cette étape d'analyse, nous sommes passés à la modification du script.
+
+Nous avons isolé les 7 variables dont les valeurs peuvent être récupérées par le script et la capture, ces valeurs sont les deux nonces, les deux macs, le SSID, le mic à tester et le champ `data`.
+
+Les paquets qui nous intéressent en particulier pour retrouver ces paramètres sont les premiers, celui qui contient la demande d'association ainsi que ceux du 4-way handshake, en analysant ces paquets parmis ceux de la capture nous pouvons retrouver les valeurs désirées.
 
 ### 2. Scaircrack (aircrack basé sur Scapy)
 
@@ -56,6 +67,10 @@ Utilisant le script [wpa\_key\_derivation.py](files/wpa_key_derivation.py) comme
 - Comparer les deux MIC
    - Identiques &rarr; La passphrase utilisée est correcte
    - Différents &rarr; Essayer avec une nouvelle passphrase
+
+Voici l'exécution de notre script
+
+![](img/scaircrack.png)
 
 
 ### 3. Scairodump (Challenge optionnel pour un bonus)
