@@ -9,12 +9,12 @@ utilise l'algorithme Michael. Dans ce cas-ci, l'authentification, on utilise
 sha-1 pour WPA2 ou MD5 pour WPA)
 """
 
-__author__      = "Abraham Rubinstein et Yann Lederrey"
-__copyright__   = "Copyright 2017, HEIG-VD"
-__license__ 	= "GPL"
-__version__ 	= "1.0"
-__email__ 		= "abraham.rubinstein@heig-vd.ch"
-__status__ 		= "Prototype"
+__author__      = "Michaël da Silva, Nenad Rajic"
+__copyright__   = "Copyright 2021, HEIG-VD"
+__license__   	= "GPL"
+__version__   	= "1.0"
+__email__     	= "michael.dasilva@heig-vd.ch, nenad.rajic@heig-vd.ch"
+__status__     	= "Prototype"
 
 from scapy.all import *
 from binascii import a2b_hex, b2a_hex
@@ -38,22 +38,34 @@ def customPRF512(key,A,B):
     return R[:blen]
 
 # Read capture file -- it contains beacon, authentication, associacion, handshake and data
-wpa=rdpcap("wpa_handshake.cap") 
+wpa=rdpcap("wpa_handshake.cap")
+
+# Get the values of the beacon frame and the handshake 1,2 and 4
+beaconF = wpa[0]
+hs_1    = wpa[5]
+hs_2    = wpa[6]
+hs_4    = wpa[8]
 
 # Important parameters for key derivation - most of them can be obtained from the pcap file
 passPhrase  = "actuelle"
 A           = "Pairwise key expansion" #this string is used in the pseudo-random function
-ssid        = "SWI"
-APmac       = a2b_hex("cebcc8fdcab7")
-Clientmac   = a2b_hex("0013efd015bd")
+
+# We get the SSID in the beacon frame
+ssid        = beaconF.info.decode()
+
+# we delete the character ":" in the AP and Client mac address to convert them into byte
+APmac       = a2b_hex(str.replace(hs_1.addr2, ":", ""))
+Clientmac   = a2b_hex(str.replace(hs_1.addr1, ":", ""))
 
 # Authenticator and Supplicant Nonces
-ANonce      = a2b_hex("90773b9a9661fee1f406e8989c912b45b029c652224e8b561417672ca7e0fd91")
-SNonce      = a2b_hex("7b3826876d14ff301aee7c1072b5e9091e21169841bce9ae8a3f24628f264577")
+# Get the value of the ANonce in the first handshake from the byte 13 to the byte 45. We start from the key descriptor
+ANonce      = hs_1.load[13:45]
+SNonce      = Dot11Elt(hs_2).load[65:97]
+
 
 # This is the MIC contained in the 4th frame of the 4-way handshake
 # When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
-mic_to_test = "36eef66540fa801ceee2fea9b7929b40"
+mic_to_test = Dot11Elt(hs_4).load[129:-2].hex()
 
 B           = min(APmac,Clientmac)+max(APmac,Clientmac)+min(ANonce,SNonce)+max(ANonce,SNonce) #used in pseudo-random function
 
