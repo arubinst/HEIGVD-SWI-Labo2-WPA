@@ -36,8 +36,11 @@ et de garder la fenêtre d'airodump ouverte en permanence pendant que vos script
 Dans cette première partie, vous allez récupérer le script **Python3** [wpa\_key\_derivation.py](files/wpa_key_derivation.py). Il vous faudra également le fichier de capture [wpa\_handshake.cap](files/wpa_handshake.cap) contenant un processus d’authentification WPA. Vous aurez aussi besoin du fichier [pbkdf2.py](files/pbkdf2.py), qui permet de calculer les 4096 tours pour le hash de la passphrase. Tous ces fichiers doivent être copiés dans le même répertoire local sur vos machines.
 
 - Ouvrir le fichier de capture [wpa\_key\_derivation.py](files/wpa_key_derivation.py) avec Wireshark
+
 - Exécuter le script avec ```python3 wpa_key_derivation.py```
+
 - Essayer d’identifier les valeurs affichées par le script dans la capture Wireshark
+  
 - Analyser le fonctionnement du script. En particulier, __faire attention__ à la variable ```data``` qui contient la payload de la trame et la comparer aux données de la quatrième trame du 4-way handshake. Lire [la fin de ce document](#quelques-éléments-à-considérer-) pour l’explication de la différence.
 - __Modifier le script__ pour qu’il récupère automatiquement, à partir de la capture, les valeurs qui se trouvent actuellement codées en dur (```ssid```, ```APmac```, ```Clientmac```, nonces…) 
 
@@ -78,6 +81,7 @@ Un fork du repo original . Puis, un Pull Request contenant **vos noms** et :
 - Script ```wpa_key_derivation.py``` **modifié pour** la récupération automatique des paramètres à partir de la capture. **Les modifications doivent être commentées/documentées**
 - Script ```scaircrack.py``` **abondamment commenté/documenté** + fichier wordlist
    - Capture d’écran de votre script en action
+   ![scaircrack.py](images/scaircrack.JPG)
 -	**(Challenge optionnel)** Script ```scairodump.py``` **abondamment commenté/documenté** 
    - Capture d’écran de votre script en action
 -	Envoyer le hash du commit et votre username GitHub et **les noms des participants** par email au professeur et à l'assistant

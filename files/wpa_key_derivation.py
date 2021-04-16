@@ -17,13 +17,14 @@ __email__ 		= "abraham.rubinstein@heig-vd.ch"
 __status__ 		= "Prototype"
 
 from scapy.all import *
+from scapy.contrib.wpa_eapol import *
 from binascii import a2b_hex, b2a_hex
 #from pbkdf2 import pbkdf2_hex
 from pbkdf2 import *
 from numpy import array_split
 from numpy import array
 import hmac, hashlib
-
+import os 
 def customPRF512(key,A,B):
     """
     This function calculates the key expansion from the 256 bit PMK to the 512 bit PTK
@@ -37,23 +38,44 @@ def customPRF512(key,A,B):
         R = R+hmacsha1.digest()
     return R[:blen]
 
-# Read capture file -- it contains beacon, authentication, associacion, handshake and data
-wpa=rdpcap("wpa_handshake.cap") 
 
-# Important parameters for key derivation - most of them can be obtained from the pcap file
+
+
+# Read capture file -- it contains beacon, authentication, associacion, handshake and data
+wpa=rdpcap("files/wpa_handshake.cap") 
+
+ 
+handshake = []
+
+# capture handshake and ssid name and mac of AP and Client
+for frame in wpa:
+    # first get ssid name and mac
+    # find beacon frame (type 0 (management) , subtype 8 (Beacon))
+    if frame.type == 0 and frame.subtype == 8:  
+        ssid = frame.info.decode("utf-8")
+        APmac = a2b_hex(frame.addr2.replace(':',''))
+    # find authentication frame (type 0 ,subtype 11 )
+    if frame.type == 0 and frame.subtype == 11 and a2b_hex(frame.addr2.replace(':', '')) == APmac :
+            # get client mac 
+            Clientmac = a2b_hex(frame.addr1.replace(':', ''))  
+    # 4-way handshake 
+    # layer WPA_key give frame 1 and 3 and proto == 1 (protocol EAPOL) give frame 2 and 4
+    if frame.haslayer(EAPOL) or frame.type == 0 and frame.subtype == 0 and frame.proto == 1:
+        handshake.append(frame)
+        
+# get Nonce and MIC
+if(len(handshake) != 4):
+    print("bad handshake or too many handshake in pcap")
+    exit()
+
+ANonce = handshake[0][EAPOL].nonce
+# for some reason this packet has no EAPOL layer to get nonce from (both field exist in wireshark)
+SNonce = raw(handshake[1])[65:97]
+# same as above, in wireshark it's from 129 to the end without last two bytes 
+mic_to_test = raw(handshake[3])[129:-2]
+# parameters that can't be obtained via the pcap file 
 passPhrase  = "actuelle"
 A           = "Pairwise key expansion" #this string is used in the pseudo-random function
-ssid        = "SWI"
-APmac       = a2b_hex("cebcc8fdcab7")
-Clientmac   = a2b_hex("0013efd015bd")
-
-# Authenticator and Supplicant Nonces
-ANonce      = a2b_hex("90773b9a9661fee1f406e8989c912b45b029c652224e8b561417672ca7e0fd91")
-SNonce      = a2b_hex("7b3826876d14ff301aee7c1072b5e9091e21169841bce9ae8a3f24628f264577")
-
-# This is the MIC contained in the 4th frame of the 4-way handshake
-# When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
-mic_to_test = "36eef66540fa801ceee2fea9b7929b40"
 
 B           = min(APmac,Clientmac)+max(APmac,Clientmac)+min(ANonce,SNonce)+max(ANonce,SNonce) #used in pseudo-random function
 
